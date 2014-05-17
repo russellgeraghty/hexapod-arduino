@@ -1,26 +1,22 @@
-#include <NetFrame.h>
-
-MessageBuilder builder;
+#include <Modbus.h>
 
 void setup() {
   Serial.begin(9600);
-  Frame frame;
-  frame.source = 1;
-  frame.messageType = 6;
-  frame.destination = 2;
-  frame.userFunction = 'D';
-  frame.sign = 0x20;
-  frame.functionCode = "BBB";
-  frame.payload = "1234";
+
+  MasterModbusMessage msg;
+  msg.slave = 15;
+  msg.function = 17;
+  msg.data1 = 1;
+  msg.data2 = 7;
+  msg.data3 = 256;
+  msg.data4 = 3;
   
-  byte* msg = new byte[15];
+  ModbusMaster master;
+  char* buffy = new char[17];
+  master.toWireFormat(buffy, msg);
   
-  builder.toMessageArray(msg, frame);
-  
-  for (int i = 0; i < 15; i++) {
-    Serial.print(msg[i]);
-    Serial.print("\n");
-  }
+  Serial.write((char *) buffy);
+  Serial.write("I'm a new line");
 }
 
 void loop() {

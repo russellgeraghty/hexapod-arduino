@@ -1,0 +1,4 @@
+MasterModbusMessage	KEYWORD1
+ModbusMaster		KEYWORD1
+toWireFormat		KEYWORD2
+calculateChecksum	KEYWORD2
