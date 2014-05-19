@@ -16,7 +16,13 @@ void setup() {
   master.toWireFormat(buffy, msg);
   
   Serial.write((char *) buffy);
-  Serial.write("I'm a new line");
+  
+  MasterModbusMessage result;
+  master.fromWireFormat(result, buffy);
+  
+  // TODO - Write out the result;
+  Serial.print(result.slave);
+  
 }
 
 void loop() {
