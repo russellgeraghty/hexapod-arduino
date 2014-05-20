@@ -1,30 +1,40 @@
 #include <Modbus.h>
 
+#define LED_PIN 13
+
 void setup() {
   Serial.begin(9600);
 
-  MasterModbusMessage msg;
-  msg.slave = 15;
-  msg.function = 17;
-  msg.data1 = 1;
-  msg.data2 = 7;
-  msg.data3 = 256;
-  msg.data4 = 3;
-  
-  ModbusMaster master;
-  char* buffy = new char[17];
-  master.toWireFormat(buffy, msg);
-  
-  Serial.write((char *) buffy);
-  
-  MasterModbusMessage result;
-  master.fromWireFormat(result, buffy);
-  
-  // TODO - Write out the result;
-  Serial.print(result.slave);
-  
+  pinMode(LED_PIN, OUTPUT);
 }
 
 void loop() {
-
+  int count = 0;
+  char buffy[13] = {'\0'};
+  bool reading = false;
+  
+  while (count < 14) {
+    if (Serial.available()) {
+      char c = Serial.read();
+      if (':' == c) {
+        count = 0;
+        Serial.println("Ready to read message");
+        reading = true;
+      } else if (' ' == c || '\r' == c || '\n' == c) {
+        reading = false;
+      } else {
+        if (reading) {
+          buffy[count] = c; 
+          count++;
+        }       
+      }
+    }
+  }
+  
+  ModbusMaster master;\
+  MasterModbusMessage message;
+  master.fromWireFormat(&message, buffy);
+  
+  Serial.println(message.slave);
+  Serial.println(message.function);
 }

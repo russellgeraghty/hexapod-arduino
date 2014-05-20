@@ -22,7 +22,7 @@ class ModbusMaster {
 	public:
 		ModbusMaster();
 		void toWireFormat(char* buffer, MasterModbusMessage message);
-		void fromWireFormat(MasterModbusMessage message, char* buffer);
+		void fromWireFormat(MasterModbusMessage* message, char* buffer);
 	private:
 		int calculateChecksum(char* buffer, int bytes);
 };
