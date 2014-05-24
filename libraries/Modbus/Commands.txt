@@ -1,0 +1,20 @@
+// Unsupported command
+:001101070003b3
+
+// Register write
+// Leg command, verb 1 (Home)
+:000600010001b8
+// Leg command, verb 2 (Walk forward)
+:00060001ff024b
+// Leg command, verb 3 (Walk backward)
+:00060001ff034a
+// Leg command, verb 4 (Turn right)
+:000600010004B5
+// Leg command, verb 5 (Turn left)
+:000600010005B4
+// Leg command, verb 6 (Crouch)
+:000600010006B3
+
+// bad command - verb out of range
+:000600010007B2
+

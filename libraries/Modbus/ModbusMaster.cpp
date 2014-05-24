@@ -12,12 +12,21 @@ void ModbusMaster::toWireFormat(char* buffer, MasterModbusMessage message) {
 	sprintf(buffer, ":%s%.2x\r\n", buffy, checksum);
 }
 
+void ModbusMaster::toErrorFormat(char* buffer, MasterModbusMessage message, int errorcode) {
+	char buffy[6] = {'\0'};
+	sprintf(buffy, "%.2x%.2x%.2x", message.slave, message.function | 128, errorcode);
+	int checksum = calculateChecksum(buffy, 6);
+	sprintf(buffer, ":%s%.2x\r\n", buffy, checksum);
+}
+
 void ModbusMaster::fromWireFormat(MasterModbusMessage* message, char* buffer) {
 	
 	int wireChecksum = -1;
 	int pos = 0;
 	
-	int theChecksum = calculateChecksum(buffer, 12);
+	int expectedChecksum = calculateChecksum(buffer, 12);
+	
+//Serial.println(expectedChecksum, HEX);
 	
 	while (*buffer != '\0') {	
 		char string_2l[3] = {'\0'};
@@ -56,11 +65,7 @@ void ModbusMaster::fromWireFormat(MasterModbusMessage* message, char* buffer) {
 		buffer += 2;
 	}
 	
-	if (theChecksum != wireChecksum) {
-		// Read modbus spec about what this should be set to...
-		message->slave = 0;
-	}
-	
+	message->failedLrc = (expectedChecksum != wireChecksum);
 }
 
 int ModbusMaster::calculateChecksum(char* buffer, int bytes) {
