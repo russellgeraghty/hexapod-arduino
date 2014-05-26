@@ -53,7 +53,7 @@ class ModbusMaster {
 
 class StreamHandler {
 	public:
-		StreamHandler(Stream* stream);
+		StreamHandler(Stream* _stream);
 		/**
 		 * Read data from the given stream, packaging it into the given buffer. Make sure
 		 * you allocate sufficient space in the buffer

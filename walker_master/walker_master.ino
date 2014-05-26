@@ -4,7 +4,7 @@
 
 #define NUM_LEGS 6
 
-/** 
+/**
  * Function code errors.
  */
 #define FUNCTION_NOT_SUPPORTED 1
@@ -27,7 +27,7 @@
  */
 #define WRITE_SINGLE_REGISTER 6
 
-/** 
+/**
  * Registers
  */
 #define MOTION_REGISTER 1
@@ -44,53 +44,55 @@ int myAddress;
 StreamHandler legChannel(&Serial1);
 
 void setup() {
-    
+
   // Main command channel
   Serial.begin(9600);
-  
+
   // Leg control channel
   Serial1.begin(9600);
-  
+
   /**
    * Arduino address is set by pulling up inputs 2-4. This gives an address range of 0-7.
    */
   pinMode(2, INPUT);
   pinMode(3, INPUT);
-  pinMode(4, INPUT); 
+  pinMode(4, INPUT);
+
+  pinMode(5, OUTPUT);
 
   myAddress = digitalRead(2) + (digitalRead(3) << 1) + (digitalRead(4) << 2);
 }
 
 /**
  * Sit in a loop reading from Serial, this is the command channel from the controller.
- * Then, when a command comes in speak to the legs, translating the inbound command into the 
+ * Then, when a command comes in speak to the legs, translating the inbound command into the
  * correct sequence for the legs.
  */
 void loop() {
-  char buffy[MAX_BUFFER] = {'\0'};  
-  
+  char buffy[MAX_BUFFER] = {'\0'};
+
   commandChannel.readMessage(buffy, MAX_BUFFER);
-  
+
   MasterModbusMessage message;
   master.fromWireFormat(&message, buffy);
-  
+
   if (message.failedLrc) {
     // Ignore it then.
   } else if (message.slave == myAddress) {
     switch (message.function) {
       case WRITE_SINGLE_REGISTER: {
-        int reg = message.data2 + (message.data1 << 16);
-        int result = handleRegisterWrite(reg, message.data3, message.data4);
-        if (result != 0) {
-          sendError(message, result);
-        } else {
-          //Success is an echo of the inbound message
-          char msg[MAX_BUFFER] = {'\0'};
-          master.toWireFormat(msg, message);
-          commandChannel.writeMessage(msg);
+          int reg = message.data2 + (message.data1 << 16);
+          int result = handleRegisterWrite(reg, message.data3, message.data4);
+          if (result != 0) {
+            sendError(message, result);
+          } else {
+            //Success is an echo of the inbound message
+            char msg[MAX_BUFFER] = {'\0'};
+            master.toWireFormat(msg, message);
+            commandChannel.writeMessage(msg);
+          }
+          break;
         }
-        break;
-      }
       default:
         sendError(message, FUNCTION_NOT_SUPPORTED);
         break;
@@ -121,20 +123,20 @@ int handleRegisterWrite(int reg, byte data1, byte data2) {
   int result = 0;
   switch (reg) {
     case MOTION_REGISTER: {
-      byte command = data2;
-      byte spd = data1;
-      int response = handleMotionCommand(command, spd);
-      if (response != 0) {
-        result = WRITE_SINGLE_REGISTER_FAIL;
+        byte command = data2;
+        byte spd = data1;
+        int response = handleMotionCommand(command, spd);
+        if (response != 0) {
+          result = WRITE_SINGLE_REGISTER_FAIL;
+        }
+        break;
       }
-      break;
-    }
-    
+
     default:
       result = REGISTER_NOT_AVAILABLE;
       break;
   }
-  
+
   return result;
 }
 
@@ -146,41 +148,35 @@ int handleRegisterWrite(int reg, byte data1, byte data2) {
  */
 int handleMotionCommand(byte command, byte speed) {
   int result = 0;
-  
+
   switch (command) {
-    case MOTION_HOME:{
+    case MOTION_HOME:
       allStop();
       break;
-    }
-    case MOTION_FORWARD:{
+    case MOTION_FORWARD:
       leftForward(speed);
       rightForward(speed);
       break;
-    } 
-    case MOTION_BACKWARD:{
+    case MOTION_BACKWARD:
       leftBackward(speed);
       rightBackward(speed);
       break;
-    }
-    case MOTION_LEFT:{
+    case MOTION_LEFT:
       leftBackward(50);
       rightForward(50);
       break;
-    }
-    case MOTION_RIGHT:{
+    case MOTION_RIGHT:
       leftForward(50);
       rightBackward(50);
       break;
-    }
-    case MOTION_CROUCH:{
-//      crouch();
+    case MOTION_CROUCH:
+      //      crouch();
       break;
-    }
     default:
-      // OK, that didn't work then
+      // OK, that didn't work then. Non-zero results are a failure so just send the command number back.
       result = command;
   }
-  
+
   return result;
 }
 
@@ -188,7 +184,7 @@ int handleMotionCommand(byte command, byte speed) {
  * Issue the all stop.
  */
 void allStop() {
-  for (int i=0; i<NUM_LEGS; i++) {
+  for (int i = 0; i < NUM_LEGS; i++) {
     sendLegMessage(i, MOTION_HOME, 0);
   }
 }
@@ -197,7 +193,7 @@ void allStop() {
  * Left side of bug forwards. Left legs are even numbered.
  */
 void leftForward(byte speed) {
-  for (int i=0; i<NUM_LEGS; i+=2) {
+  for (int i = 0; i < NUM_LEGS; i += 2) {
     sendLegMessage(i, MOTION_FORWARD, speed);
   }
 }
@@ -206,7 +202,7 @@ void leftForward(byte speed) {
  * Right side of bug forwards. Right legs are odd numbered.
  */
 void rightForward(byte speed) {
-  for (int i=1; i<NUM_LEGS; i+=2) {
+  for (int i = 1; i < NUM_LEGS; i += 2) {
     sendLegMessage(i, MOTION_FORWARD, speed);
   }
 }
@@ -215,7 +211,7 @@ void rightForward(byte speed) {
  * Left side of bug backwards. Left legs are even numbered.
  */
 void leftBackward(byte speed) {
-  for (int i=0; i<NUM_LEGS; i+=2) {
+  for (int i = 0; i < NUM_LEGS; i += 2) {
     sendLegMessage(i, MOTION_BACKWARD, speed);
   }
 }
@@ -224,7 +220,7 @@ void leftBackward(byte speed) {
  * Right side of bug backwards. Right legs are odd numbered.
  */
 void rightBackward(byte speed) {
-  for (int i=1; i<NUM_LEGS; i+=2) {
+  for (int i = 1; i < NUM_LEGS; i += 2) {
     sendLegMessage(i, MOTION_BACKWARD, speed);
   }
 }
@@ -245,6 +241,9 @@ void sendLegMessage(int leg, byte action, byte speed) {
   message.data3 = speed;
   message.data4 = action;
   char buffer[18] = {'\0'};
-  master.toWireFormat(buffer, message);   
+  master.toWireFormat(buffer, message);
+
+  digitalWrite(5, LOW);
   legChannel.writeMessage(buffer);
+  digitalWrite(5, HIGH);
 }

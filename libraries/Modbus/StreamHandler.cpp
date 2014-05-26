@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Modbus.h>
+#include <string.h>
 
 StreamHandler::StreamHandler(Stream* _stream) {
 	stream = _stream;
@@ -25,5 +26,5 @@ void StreamHandler::readMessage(char* buffer, int bufferSize) {
 }
 
 void StreamHandler::writeMessage(char* buffer) {
-	stream->println(buffer);
+	stream->println(buffer);	
 }
