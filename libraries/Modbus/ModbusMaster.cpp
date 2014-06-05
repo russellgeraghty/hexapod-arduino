@@ -26,13 +26,13 @@ void ModbusMaster::fromWireFormat(MasterModbusMessage* message, char* buffer) {
 	
 	int expectedChecksum = calculateChecksum(buffer, 12);
 	
-//Serial.println(expectedChecksum, HEX);
+	//Serial.println(expectedChecksum, HEX);
 	
 	while (*buffer != '\0') {	
-		char string_2l[3] = {'\0'};
-		strncpy(string_2l, buffer, 2);
+		char string_3l[3] = {'\0'};
+		strncpy(string_3l, buffer, 2);
 
-		int i = strtol(string_2l, NULL, 16);
+		int i = strtol(string_3l, NULL, 16);
 		
 		switch (pos) {
 			case 0:
@@ -64,6 +64,7 @@ void ModbusMaster::fromWireFormat(MasterModbusMessage* message, char* buffer) {
 		pos++;
 		buffer += 2;
 	}
+	//Serial.println(wireChecksum, HEX);
 	
 	message->failedLrc = (expectedChecksum != wireChecksum);
 }

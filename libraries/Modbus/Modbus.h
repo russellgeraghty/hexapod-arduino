@@ -58,7 +58,7 @@ class StreamHandler {
 		 * Read data from the given stream, packaging it into the given buffer. Make sure
 		 * you allocate sufficient space in the buffer
 		 */
-		void readMessage(char* buffer, int bufferSize);
+		int readMessage(char* buffer, int bufferSize);
 		/**
 		 * Write the data given in buffer to the given stream.
 		 */

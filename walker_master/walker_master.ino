@@ -1,36 +1,8 @@
 #include <Modbus.h>
+#include <Walker.h>
 
-#define MAX_BUFFER 100
+#define RS_CONTROL 5
 
-#define NUM_LEGS 6
-
-/**
- * Function code errors.
- */
-#define FUNCTION_NOT_SUPPORTED 1
-#define REGISTER_OUT_OF_RANGE  2
-#define REGISTER_NOT_AVAILABLE 3
-#define WRITE_SINGLE_REGISTER_FAIL 4
-
-/**
- * Motion commands
- */
-#define MOTION_HOME 1
-#define MOTION_FORWARD 2
-#define MOTION_BACKWARD 3
-#define MOTION_LEFT 4
-#define MOTION_RIGHT 5
-#define MOTION_CROUCH 6
-
-/**
- * Supported function codes.
- */
-#define WRITE_SINGLE_REGISTER 6
-
-/**
- * Registers
- */
-#define MOTION_REGISTER 1
 /**
  * Command/control channel from PC.
  */
@@ -58,6 +30,9 @@ void setup() {
   pinMode(3, INPUT);
   pinMode(4, INPUT);
 
+  /**
+   * Serial write enable.
+   */
   pinMode(5, OUTPUT);
 
   myAddress = digitalRead(2) + (digitalRead(3) << 1) + (digitalRead(4) << 2);
@@ -149,25 +124,27 @@ int handleRegisterWrite(int reg, byte data1, byte data2) {
 int handleMotionCommand(byte command, byte speed) {
   int result = 0;
 
+  bool success = true;
+
   switch (command) {
     case MOTION_HOME:
-      allStop();
+      success &= allStop();
       break;
     case MOTION_FORWARD:
-      leftForward(speed);
-      rightForward(speed);
+      success &= leftForward(speed);
+      success &= rightForward(speed);
       break;
     case MOTION_BACKWARD:
-      leftBackward(speed);
-      rightBackward(speed);
+      success &= leftBackward(speed);
+      success &= rightBackward(speed);
       break;
     case MOTION_LEFT:
-      leftBackward(50);
-      rightForward(50);
+      success &= leftBackward(50);
+      success &= rightForward(50);
       break;
     case MOTION_RIGHT:
-      leftForward(50);
-      rightBackward(50);
+      success &= leftForward(50);
+      success &= rightBackward(50);
       break;
     case MOTION_CROUCH:
       //      crouch();
@@ -176,6 +153,10 @@ int handleMotionCommand(byte command, byte speed) {
       // OK, that didn't work then. Non-zero results are a failure so just send the command number back.
       result = command;
   }
+  
+  if (false == success) {
+    result = 64;
+  }
 
   return result;
 }
@@ -183,46 +164,56 @@ int handleMotionCommand(byte command, byte speed) {
 /**
  * Issue the all stop.
  */
-void allStop() {
-  for (int i = 0; i < NUM_LEGS; i++) {
-    sendLegMessage(i, MOTION_HOME, 0);
+bool allStop() {
+  bool success = true;
+  for (int i = 1; i <= NUM_LEGS; i++) {
+    success &= sendLegMessage(i, MOTION_HOME, 0);
   }
+  return success;
 }
 
 /**
  * Left side of bug forwards. Left legs are even numbered.
  */
-void leftForward(byte speed) {
-  for (int i = 0; i < NUM_LEGS; i += 2) {
-    sendLegMessage(i, MOTION_FORWARD, speed);
+bool leftForward(byte speed) {
+  bool success = true;
+  for (int i = 1; i <= NUM_LEGS; i += 2) {
+    success &= sendLegMessage(i, MOTION_FORWARD, speed);
   }
+  return success;
 }
 
 /**
  * Right side of bug forwards. Right legs are odd numbered.
  */
-void rightForward(byte speed) {
-  for (int i = 1; i < NUM_LEGS; i += 2) {
-    sendLegMessage(i, MOTION_FORWARD, speed);
+bool rightForward(byte speed) {
+  bool success = true;
+  for (int i = 2; i <= NUM_LEGS; i += 2) {
+    success &= sendLegMessage(i, MOTION_FORWARD, speed);
   }
+  return success;
 }
 
 /**
  * Left side of bug backwards. Left legs are even numbered.
  */
-void leftBackward(byte speed) {
-  for (int i = 0; i < NUM_LEGS; i += 2) {
-    sendLegMessage(i, MOTION_BACKWARD, speed);
+bool leftBackward(byte speed) {
+  bool success = true;
+  for (int i = 1; i <= NUM_LEGS; i += 2) {
+    success &= sendLegMessage(i, MOTION_BACKWARD, speed);
   }
+  return success;
 }
 
 /**
  * Right side of bug backwards. Right legs are odd numbered.
  */
-void rightBackward(byte speed) {
-  for (int i = 1; i < NUM_LEGS; i += 2) {
-    sendLegMessage(i, MOTION_BACKWARD, speed);
+bool rightBackward(byte speed) {
+  bool success = true;
+  for (int i = 2; i <= NUM_LEGS; i += 2) {
+    success &= sendLegMessage(i, MOTION_BACKWARD, speed);
   }
+  return success;
 }
 
 
@@ -231,8 +222,9 @@ void rightBackward(byte speed) {
  * @param leg The leg
  * @param action The action to perform
  * @param speed The speed to perform it at
+ * @return true if successful, false otherwise
  */
-void sendLegMessage(int leg, byte action, byte speed) {
+bool sendLegMessage(int leg, byte action, byte speed) {
   MasterModbusMessage message;
   message.slave = leg;
   message.function = WRITE_SINGLE_REGISTER;
@@ -243,7 +235,23 @@ void sendLegMessage(int leg, byte action, byte speed) {
   char buffer[18] = {'\0'};
   master.toWireFormat(buffer, message);
 
-  digitalWrite(5, LOW);
+  digitalWrite(RS_CONTROL, HIGH);
   legChannel.writeMessage(buffer);
-  digitalWrite(5, HIGH);
+  Serial.print("Wrote message ");
+  Serial.print(buffer);
+  Serial.print(" to ");
+  Serial.println(leg);
+  digitalWrite(RS_CONTROL, LOW);
+  
+  char inputBuffer[MAX_BUFFER] = {'\0'};
+  int read = legChannel.readMessage(inputBuffer, MAX_BUFFER);
+  Serial.println(read);
+  Serial.println(inputBuffer);
+  
+  bool success = true;
+  for (int i=0; i<18; i++) {
+    success &= (buffer[i] == inputBuffer[i]);
+  }
+  
+  return success;
 }

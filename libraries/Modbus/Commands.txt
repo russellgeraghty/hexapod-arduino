@@ -18,3 +18,13 @@
 // bad command - verb out of range
 :000600010007B2
 
+// Slave leg command, home
+:010600010001b7
+// Verb out of range
+:010600010007B1
+// Unsupported
+:011101070003b2
+//Walk forwards
+:01060001ff024a
+// Walk backwards
+:01060001ff0349
