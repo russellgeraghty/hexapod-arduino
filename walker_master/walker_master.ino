@@ -1,19 +1,18 @@
 #include <Modbus.h>
 #include <Walker.h>
-
-#define RS_CONTROL 5
+#include <Wire.h>
 
 /**
  * Command/control channel from PC.
  */
-StreamHandler commandChannel(&Serial);
+
 ModbusMaster master;
 int myAddress;
 
 /**
  * Command/control channel for legs.
  */
-StreamHandler legChannel(&Serial1);
+StreamHandler legChannel(&Wire);
 
 void setup() {
 
@@ -21,7 +20,9 @@ void setup() {
   Serial.begin(9600);
 
   // Leg control channel
-  Serial1.begin(9600);
+  Wire.begin();
+
+  Serial.setTimeout(1500);
 
   /**
    * Arduino address is set by pulling up inputs 2-4. This gives an address range of 0-7.
@@ -29,11 +30,6 @@ void setup() {
   pinMode(2, INPUT);
   pinMode(3, INPUT);
   pinMode(4, INPUT);
-
-  /**
-   * Serial write enable.
-   */
-  pinMode(5, OUTPUT);
 
   myAddress = digitalRead(2) + (digitalRead(3) << 1) + (digitalRead(4) << 2);
 }
@@ -44,36 +40,58 @@ void setup() {
  * correct sequence for the legs.
  */
 void loop() {
-  char buffy[MAX_BUFFER] = {'\0'};
+  char c = '\0';
+  int count = 0;
+  bool reading = false;
 
-  commandChannel.readMessage(buffy, MAX_BUFFER);
+  char b[MAX_BUFFER] = {'\0'};
+  int read = Serial.readBytesUntil('\n', b, MAX_BUFFER);
 
-  MasterModbusMessage message;
-  master.fromWireFormat(&message, buffy);
+  if (read > 0) {
+    char buffy[MAX_BUFFER] = {'\0'};
 
-  if (message.failedLrc) {
-    // Ignore it then.
-  } else if (message.slave == myAddress) {
-    switch (message.function) {
-      case WRITE_SINGLE_REGISTER: {
-          int reg = message.data2 + (message.data1 << 16);
-          int result = handleRegisterWrite(reg, message.data3, message.data4);
-          if (result != 0) {
-            sendError(message, result);
-          } else {
-            //Success is an echo of the inbound message
-            char msg[MAX_BUFFER] = {'\0'};
-            master.toWireFormat(msg, message);
-            commandChannel.writeMessage(msg);
-          }
-          break;
-        }
-      default:
-        sendError(message, FUNCTION_NOT_SUPPORTED);
-        break;
+    for (int i = 0; i < read && count < read; i++) {
+      c = b[i];
+      if (':' == c) {
+        reading = true;
+        // Go back to the start of the buffer
+        count = 0;
+      } else if (reading && ( (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))) {
+        buffy[count++] = c;
+      }
     }
-  } else {
-    // Ignore it then
+
+    Serial.println(buffy);
+
+    MasterModbusMessage message;
+    master.fromWireFormat(&message, buffy);
+
+    if (message.failedLrc) {
+      // Ignore it then.
+      Serial.println("Failed LRC");
+    } else if (message.slave == myAddress) {
+      switch (message.function) {
+        case WRITE_SINGLE_REGISTER: {
+            int reg = message.data2 + (message.data1 << 16);
+            int result = handleRegisterWrite(reg, message.data3, message.data4);
+            if (result != 0) {
+              sendError(message, result);
+            } else {
+              //Success is an echo of the inbound message
+              char msg[MAX_BUFFER] = {'\0'};
+              master.toWireFormat(msg, message);
+              Serial.println(msg);
+            }
+            break;
+          }
+        default:
+          sendError(message, FUNCTION_NOT_SUPPORTED);
+          break;
+      }
+    } else {
+      Serial.print("Not addressed to me ");
+      Serial.println(message.slave);
+    }
   }
 }
 
@@ -85,7 +103,7 @@ void loop() {
 void sendError(MasterModbusMessage message, int errorCode) {
   char error[11] = {'\0'};
   master.toErrorFormat(error, message, errorCode);
-  commandChannel.writeMessage(error);
+  Serial.println(error);
 }
 
 /**
@@ -153,7 +171,7 @@ int handleMotionCommand(byte command, byte speed) {
       // OK, that didn't work then. Non-zero results are a failure so just send the command number back.
       result = command;
   }
-  
+
   if (false == success) {
     result = 64;
   }
@@ -232,26 +250,36 @@ bool sendLegMessage(int leg, byte action, byte speed) {
   message.data2 = MOTION_REGISTER;
   message.data3 = speed;
   message.data4 = action;
-  char buffer[18] = {'\0'};
+  char buffer[20];
+  for (int i = 0; i < 20; i++) {
+    buffer[i] = '\0';
+  }
+  
   master.toWireFormat(buffer, message);
 
-  digitalWrite(RS_CONTROL, HIGH);
-  legChannel.writeMessage(buffer);
+  Serial.println("Writing message ");
+  bool result = legChannel.writeMessage(leg, buffer);
   Serial.print("Wrote message ");
   Serial.print(buffer);
   Serial.print(" to ");
   Serial.println(leg);
-  digitalWrite(RS_CONTROL, LOW);
   
-  char inputBuffer[MAX_BUFFER] = {'\0'};
-  int read = legChannel.readMessage(inputBuffer, MAX_BUFFER);
-  Serial.println(read);
-  Serial.println(inputBuffer);
+  bool success = false;
   
-  bool success = true;
-  for (int i=0; i<18; i++) {
-    success &= (buffer[i] == inputBuffer[i]);
+  if (result) {
+    char inputBuffer[MAX_BUFFER] = {'\0'};
+    int read = legChannel.readMessage(leg, inputBuffer, MAX_BUFFER);
+    Serial.print("Read ");
+    Serial.println(read);
+    Serial.print("Buffer [");
+    Serial.print(inputBuffer);
+    Serial.println("]");
+
+    success = true;
+    for (int i = 0; i < 18; i++) {
+      success &= (buffer[i] == inputBuffer[i]);
+    }
   }
-  
+
   return success;
 }

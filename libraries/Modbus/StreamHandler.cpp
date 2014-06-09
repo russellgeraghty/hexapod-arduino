@@ -3,11 +3,13 @@
 #include <string.h>
 #include <Walker.h>
 
-StreamHandler::StreamHandler(Stream* _stream) {
-	stream = _stream;
+#define RETAIN_CONTROL true
+
+StreamHandler::StreamHandler(TwoWire* _wire) {
+	wire = _wire;
 }
 
-int StreamHandler::readMessage(char* buffer, int bufferSize) {
+int StreamHandler::readMessage(int slave, char* buffer, int bufferSize) {
 	char c = '\0';
 	int count = 0;  
 	bool reading = false;
@@ -17,8 +19,19 @@ int StreamHandler::readMessage(char* buffer, int bufferSize) {
 		b[i] = '\0';
 	}
 	
-	stream->setTimeout(1500);
-	int read = stream->readBytesUntil('\r', b, MAX_BUFFER); 
+	wire->requestFrom(slave, bufferSize);
+	//int read = wire->readBytesUntil('\r', b, bufferSize); 
+	//Wire.requestFrom(2, 6);    // request 6 bytes from slave device #2
+
+	while(wire->available())    // slave may send less than requested
+	{ 
+		char c = wire->read(); // receive a byte as character
+		Serial.print(c);         // print the character
+	}
+
+	int read = 0;
+	Serial.print("Bytes until ");
+	Serial.println(b);
   
 	if (read > 0) {
 		for (int i=0; i<read && count<bufferSize; i++) {
@@ -32,10 +45,23 @@ int StreamHandler::readMessage(char* buffer, int bufferSize) {
 			} 
 		}
 	}
-	return read;
+	return count;
 }
 
-void StreamHandler::writeMessage(char* buffer) {
-	stream->println(buffer);	
+bool StreamHandler::writeMessage(int slave, char* buffer) {
+	// Check the leg is there first
+	wire->beginTransmission(slave);
+	byte response = wire->endTransmission();
+	if (response == 0) {
+		wire->beginTransmission(slave);
+		wire->println(buffer);
+		response = wire->endTransmission();
+	 } else {
+		Serial.print("Slave ");
+		Serial.print(slave);
+		Serial.print(" not found");
+	}
+	
+	return response == 0;
 }
 

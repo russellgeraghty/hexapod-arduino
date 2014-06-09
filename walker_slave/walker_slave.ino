@@ -1,12 +1,13 @@
 #include <Modbus.h>
 #include <Walker.h>
+#include <Wire.h>
 
 #define RS_CONTROL 5
 
 /**
  * Command/control channel from Master.
  */
-StreamHandler commandChannel(&Serial);
+StreamHandler commandChannel(&Wire);
 ModbusMaster master;
 int myAddress;
 
@@ -33,10 +34,6 @@ void setup() {
   pinMode(3, INPUT);
   pinMode(4, INPUT);
 
-  /**
-   * Serial write enable.
-   */
-  pinMode(RS_CONTROL, OUTPUT);
   // Pin your ears back.
   digitalWrite(RS_CONTROL, LOW);
 
@@ -44,6 +41,8 @@ void setup() {
 
   myAddress = 1;
   //digitalRead(2) + (digitalRead(gitalRead(4) << 2);
+  Wire.begin(myAddress);
+  Wire.onReceive(receiveEvent); 
   resetMessage();
 }
 
@@ -56,14 +55,14 @@ void loop() {
     if (Serial.available()) {
       char c = Serial.read();
       
-      // if the LED is off turn it on and vice-versa:
-      if (ledState == LOW)
-        ledState = HIGH;
-      else
-        ledState = LOW;
+//      // if the LED is off turn it on and vice-versa:
+//      if (ledState == LOW)
+//        ledState = HIGH;
+//      else
+//        ledState = LOW;
 
       // set the LED with the ledState of the variable:
-      digitalWrite(ledPin, ledState);
+//      digitalWrite(ledPin, ledState);
       
       if (':' == c) {
         midFlow = true;
@@ -101,7 +100,7 @@ void loop() {
               char msg[MAX_BUFFER] = {'\0'};
               master.toWireFormat(msg, message);
               digitalWrite(RS_CONTROL, HIGH);
-              commandChannel.writeMessage(msg);
+              commandChannel.writeMessage(0, msg);
               delay(20);
               digitalWrite(RS_CONTROL, HIGH);
             } else {
@@ -142,7 +141,7 @@ void sendError(MasterModbusMessage message, int errorCode) {
   char error[11] = {'\0'};
   master.toErrorFormat(error, message, errorCode);
   digitalWrite(RS_CONTROL, HIGH);
-  commandChannel.writeMessage(error);
+  commandChannel.writeMessage(0, error);
   digitalWrite(RS_CONTROL, LOW);
 }
 

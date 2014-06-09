@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <cstring>
+#include <Wire.h>
 
 #ifndef Modbus_h
 #define Modbus_h
@@ -53,18 +54,18 @@ class ModbusMaster {
 
 class StreamHandler {
 	public:
-		StreamHandler(Stream* _stream);
+		StreamHandler(TwoWire* _wire);
 		/**
 		 * Read data from the given stream, packaging it into the given buffer. Make sure
 		 * you allocate sufficient space in the buffer
 		 */
-		int readMessage(char* buffer, int bufferSize);
+		int readMessage(int slave, char* buffer, int bufferSize);
 		/**
 		 * Write the data given in buffer to the given stream.
 		 */
-		void writeMessage(char* buffer);
+		bool writeMessage(int slave, char* buffer);
 	private:
-		Stream* stream;
+		TwoWire* wire;
 };
 
 #endif
