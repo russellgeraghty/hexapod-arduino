@@ -1,4 +1,0 @@
-NetFrame			KEYWORD1
-Frame				KEYWORD1
-calculateCheckSum	KEYWORD2
-toMessageArray		KEYWORD2
