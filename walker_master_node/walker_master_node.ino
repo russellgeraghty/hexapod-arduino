@@ -1,6 +1,8 @@
 #include <Wire.h>
+#include <StringUtils.h>
 
 const String COMMAND_HOME = "HOME";
+const char delimiter = '|';
 
 // How many legs do we have?
 const int maxLegs = 1;
@@ -16,25 +18,33 @@ void loop() {
   if (Serial.available() > 0) {
     String message = Serial.readStringUntil('\n');
     message.trim();
-    int barIndex = message.indexOf('|');
-    String command = message.substring(0, barIndex);
 
-    bool success;
-    String additionalInformation = "";
+    int delimiters = StringUtils::countSplitCharacters(message, delimiter);
+    if (delimiters >= 1) {
+      String* pieces = StringUtils::split(message, delimiter);
 
-    if (COMMAND_HOME == command) {
-      success = sendHome();
+      String correlationId = pieces[0];
+      String command = pieces[1];
+
+      bool success;
+      String additionalInformation = "";
+
+      if (COMMAND_HOME == command) {
+        success = sendHome();
+      } else {
+        success = false;
+        additionalInformation = "NOT_SUPPORTED";
+      }
+
+      if (success) {
+        Serial.println("SUCCESS|" + correlationId + "|" + command + "|" + additionalInformation);
+      } else {
+        Serial.println("FAILED|" + correlationId + "|" + command + "|" + additionalInformation);
+      }
     } else {
-      success = false;
-      additionalInformation = "NOT_SUPPORTED";
+      Serial.print("FAILED|MESSAGE_TOO_SHORT|");
+      Serial.println(delimiters + 1);
     }
-
-    if (success) {
-      Serial.println("SUCCESS|" + command + "|" + additionalInformation);
-    } else {
-      Serial.println("FAILED|" + command + "|" + additionalInformation);
-    }
-
   }
 }
 
@@ -59,15 +69,15 @@ int sendLegCommand(int leg, String command, String args[]) {
   char buffer[command.length() + 1];
   command.toCharArray(buffer, command.length() + 1);
   Wire.write(buffer);
-  
-  for (int i = 0; i < sizeof(args)/sizeof(args[0]); i++ ) {
+
+  for (int i = 0; i < sizeof(args) / sizeof(args[0]); i++ ) {
     String arg = args[i];
     char buff[arg.length() + 1];
     arg.toCharArray(buff, arg.length() + 1);
     Wire.write(buff);
   }
   Wire.write('\n');
-  
+
   int response = Wire.endTransmission();
   return response;
 }
