@@ -78,7 +78,6 @@ void setup()
 void loop()
 {
   // Handle the LED
-  
   unsigned long currentLedMillis = millis();
   
   if (currentLedMillis > ledIllumiteUntil) {
@@ -111,6 +110,21 @@ void loop()
       index = 0;
     }
 
+  }
+  
+  // On serial read send out some debug
+  int theNumber;
+  if (theNumber = Serial.available()) {
+    for (int i = 0; i < theNumber; i++) {
+      Serial.read();
+    }
+    
+    Serial.print("Listening on channel [");
+    Serial.print(channel);
+    Serial.print("]. Currently executing command [");
+    Serial.print(standingOrder);
+    Serial.print("]");
+    Serial.println();
   }
 }
 
