@@ -21,12 +21,16 @@ unsigned long previousMillis = 0;
 unsigned long ledIllumiteUntil = 0;
 
 // Interval in milliseconds between leg actions:
-const long interval = 100;
+const long interval = 500;
 
 // This is the home position, a single standing leg
 // Order is waist, shoulder, elbow
-short home[] = {90, 90, 90, -1};
-short forwards[] = {80, 90, 90, 80, 120, 90, 120, 120, 90, 120, 90, 90, -1};
+short home[] = {60, 70, 170, -1};
+short forwards[] = {40, 20, 130, 
+                    40, 40, 180, 
+                    60, 40, 180, 
+                    60, 20, 130, 
+                    -1};
 
 // The current index in the position loop
 byte index = 0;
@@ -41,6 +45,8 @@ Servo waist;
 Servo shoulder;
 Servo elbow;
 
+int channel;
+
 void setup()
 {
   Serial.begin(9600);           // start serial for output
@@ -52,7 +58,7 @@ void setup()
   digitalWrite(A0, HIGH);
   digitalWrite(A1, HIGH);
   digitalWrite(A2, HIGH);
-  int channel = digitalRead(A0) + (digitalRead(A1) << 1) + (digitalRead(A2) << 2);
+  channel = digitalRead(A0) + (digitalRead(A1) << 1) + (digitalRead(A2) << 2);
 
   // Servos
   waist.attach(WAIST_PIN);
@@ -61,7 +67,7 @@ void setup()
   
   // LED
   pinMode(LED_PIN, OUTPUT);
-
+  
   Wire.begin(channel);
   Wire.onReceive(receiveEvent); // register event
   Wire.setTimeout(500);
@@ -98,10 +104,10 @@ void loop()
     index += numJoints;
     // Because a joint can be at postion 0 perfectly legally the motion index array is terminated by -1.
     if (motion[index] == -1) {
-      Serial.print("Next index ");
-      Serial.print(index);
-      Serial.print(" is the end of motion, resetting");
-      Serial.println();
+//      Serial.print("Next index ");
+//      Serial.print(index);
+//      Serial.print(" is the end of motion, resetting");
+//      Serial.println();
       index = 0;
     }
 
@@ -129,46 +135,46 @@ void receiveEvent(int howMany)
 }
 
 void setWaist(short waistPosition) {
-  Serial.print("Requested waist to    ");
-  Serial.print(waistPosition);
-  Serial.println();
+//  Serial.print("Requested waist to    ");
+//  Serial.print(waistPosition);
+//  Serial.println();
   
-  waistPosition = min(100, waistPosition);
-  waistPosition = max(80, waistPosition);
+  waistPosition = min(60, waistPosition);
+  waistPosition = max(40, waistPosition);
   
-  Serial.print("Setting waist to      ");
-  Serial.print(waistPosition);
-  Serial.println();  
+//  Serial.print("Setting waist to      ");
+//  Serial.print(waistPosition);
+//  Serial.println();  
   
   waist.write(waistPosition);
 }
 
 void setShoulder(short shoulderPosition) {
-  Serial.print("Requested shoulder to ");
-  Serial.print(shoulderPosition);
-  Serial.println();
+//  Serial.print("Requested shoulder to ");
+//  Serial.print(shoulderPosition);
+//  Serial.println();
   
-  shoulderPosition = min(130, shoulderPosition);
-  shoulderPosition = max(50, shoulderPosition);
+  shoulderPosition = min(150, shoulderPosition);
+  shoulderPosition = max(0, shoulderPosition);
   
-  Serial.print("Setting shoulder to   ");
-  Serial.print(shoulderPosition);
-  Serial.println();
+//  Serial.print("Setting shoulder to   ");
+//  Serial.print(shoulderPosition);
+//  Serial.println();
   
   shoulder.write(shoulderPosition);
 }
 
 void setElbow(short elbowPosition) {
-  Serial.print("Requested elbow to    ");
-  Serial.print(elbowPosition);
-  Serial.println();
+//  Serial.print("Requested elbow to    ");
+//  Serial.print(elbowPosition);
+//  Serial.println();
   
-  elbowPosition = min(150, elbowPosition);
-  elbowPosition = max(30, elbowPosition);
-  
-  Serial.print("Setting elbow to      ");
-  Serial.print(elbowPosition);
-  Serial.println();
+  elbowPosition = min(180, elbowPosition);
+  elbowPosition = max(0, elbowPosition);
+
+//  Serial.print("Setting elbow to      ");
+//  Serial.print(elbowPosition);
+//  Serial.println();
   
   elbow.write(elbowPosition);  
 }
@@ -179,9 +185,6 @@ void setElbow(short elbowPosition) {
  */
 void setStandingOrder() {
   int changed = false;
-
-  Serial.print("Received command ");
-  Serial.println(standingOrder);
 
   switch (standingOrder) { 
     case 'H':

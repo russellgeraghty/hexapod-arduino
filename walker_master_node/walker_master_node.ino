@@ -19,15 +19,20 @@ void loop() {
     String message = Serial.readStringUntil('\n');
     message.trim();
 
+    String additionalInformation;
+
     int delimiters = StringUtils::countSplitCharacters(message, delimiter);
     if (delimiters >= 1) {
-      String* pieces = StringUtils::split(message, delimiter);
+      String pieces[delimiters + 1];
+      int count = StringUtils::split(message, delimiter, pieces);
 
       String correlationId = pieces[0];
       String command = pieces[1];
+      
+      Serial.println(correlationId);
+      Serial.println(command);
 
       bool success;
-      String additionalInformation = "";
 
       if (COMMAND_HOME == command) {
         success = sendHome();
@@ -55,7 +60,7 @@ void loop() {
 bool sendHome() {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
-    success &= (sendLegCommand(i, COMMAND_HOME, NULL) == 0);
+    success &= (sendLegCommand(i, 'H') == 0);
   }
   return success;
 }
@@ -64,20 +69,9 @@ bool sendHome() {
  * Send a command to a leg.
  * @return non-zero response in case of failure
  */
-int sendLegCommand(int leg, String command, String args[]) {
+int sendLegCommand(int leg, char command) {
   Wire.beginTransmission(leg);
-  char buffer[command.length() + 1];
-  command.toCharArray(buffer, command.length() + 1);
-  Wire.write(buffer);
-
-  for (int i = 0; i < sizeof(args) / sizeof(args[0]); i++ ) {
-    String arg = args[i];
-    char buff[arg.length() + 1];
-    arg.toCharArray(buff, arg.length() + 1);
-    Wire.write(buff);
-  }
-  Wire.write('\n');
-
+  Wire.write(command);
   int response = Wire.endTransmission();
   return response;
 }
