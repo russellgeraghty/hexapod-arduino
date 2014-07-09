@@ -1,8 +1,8 @@
 #include <Wire.h>
-#include <StringUtils.h>
 
-const String COMMAND_HOME = "HOME";
-const char delimiter = '|';
+const char *COMMAND_HOME = "HOME";
+char *delimiter = "|";
+const int buffer_size = 100;
 
 // How many legs do we have?
 const int maxLegs = 1;
@@ -15,43 +15,65 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    String message = Serial.readStringUntil('\n');
-    message.trim();
+  char buf[buffer_size];
+  int number = getline(buf, buffer_size);
 
-    String additionalInformation;
+  if (number > 0) {
+    int pos = 0;
+    char *pieces[3];
+    char *ch = strtok(buf, delimiter);
 
-    int delimiters = StringUtils::countSplitCharacters(message, delimiter);
-    if (delimiters >= 1) {
-      String pieces[delimiters + 1];
-      int count = StringUtils::split(message, delimiter, pieces);
+    while (ch != NULL && pos  < 3) {
+      pieces[pos++] = ch;
+      ch = strtok(NULL, delimiter);
+    }
 
-      String correlationId = pieces[0];
-      String command = pieces[1];
-      
-      Serial.println(correlationId);
-      Serial.println(command);
+    if (pos > 1) {
+      char *correlationId = pieces[0];
+      char *command = pieces[1];
+      char *additionalInformation;
 
       bool success;
-
-      if (COMMAND_HOME == command) {
+      if (strcmp(COMMAND_HOME, command) == 0) {
         success = sendHome();
       } else {
         success = false;
         additionalInformation = "NOT_SUPPORTED";
       }
 
-      if (success) {
-        Serial.println("SUCCESS|" + correlationId + "|" + command + "|" + additionalInformation);
+      char *format = "";
+      if (success == true) {
+        format = "SUCCESS|%s|%s|%s";
       } else {
-        Serial.println("FAILED|" + correlationId + "|" + command + "|" + additionalInformation);
+        format = "FAILED|%s|%s|%s";
       }
+      char response[180];
+      sprintf(response, format, correlationId, command, additionalInformation);
+      Serial.println(response);
+
     } else {
-      Serial.print("FAILED|MESSAGE_TOO_SHORT|");
-      Serial.println(delimiters + 1);
+      char response[120];
+      sprintf(response, "FAILED|MESSAGE_TOO_SHORT|%d", pos);
+      Serial.println(response);
     }
   }
 }
+
+/**
+ * Get a line of text and put it into the supplied s[], limited to the given length.
+ * @param s The value to return
+ * @param lim The limit of chars to get (the size of s[])
+ * @return The number of characters actually received
+ */
+int getline(char s[], int lim) {
+  int length = 0;
+  if (Serial.available() > 0) {
+    length = Serial.readBytesUntil('\n', s, lim - 1);
+  }
+  s[length] = '\0';
+  return length;
+}
+
 
 /**
  * Ask all the legs to go home.
