@@ -31,7 +31,7 @@ void loop() {
     if (pos > 1) {
       char *correlationId = pieces[0];
       char *command = pieces[1];
-      char *additionalInformation;
+      char *additionalInformation = "";
 
       bool success;
       if (strcmp(COMMAND_HOME, command) == 0) {
