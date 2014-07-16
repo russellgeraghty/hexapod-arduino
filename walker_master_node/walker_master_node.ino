@@ -44,15 +44,15 @@ void loop() {
 
       bool success;
       if (strcmp(COMMAND_HOME, command) == 0) {
-        success = sendHome();
+        success = sendHome(correlationId);
       } else if (strcmp(COMMAND_WALK, command) == 0) {
-        success = sendForward();
+        success = sendForward(correlationId);
       } else if (strcmp(COMMAND_BACK, command) == 0) {
-        success = sendBackward();
+        success = sendBackward(correlationId);
       } else if (strcmp(COMMAND_LEFT, command) == 0) {
-        success = sendLeft();
+        success = sendLeft(correlationId);
       } else if (strcmp(COMMAND_RIGHT, command) == 0) {
-        success = sendRight();
+        success = sendRight(correlationId);
       } else {
         success = false;
         additionalInformation = "NOT_SUPPORTED";
@@ -60,9 +60,9 @@ void loop() {
 
       char *format = "";
       if (success == true) {
-        format = "SUCCESS|%s|%s|%s";
+        format = "%s|SUCCESS|%s|%s";
       } else {
-        format = "FAILED|%s|%s|%s";
+        format = "%s|FAILED|%s|%s";
       }
       char response[180];
       sprintf(response, format, correlationId, command, additionalInformation);
@@ -94,45 +94,49 @@ int getline(char s[], int lim) {
 
 /**
  * Ask all the legs to go home.
+ * @param correlationId which command instigated the motion
  * @return true if all the legs responded properly, false if not
  */
-bool sendHome() {
+bool sendHome(char* correlationId) {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
-    success &= (sendLegCommand(i, LEG_HOME) == 0);
+    success &= (sendLegCommand(correlationId, i, LEG_HOME) == 0);
   }
   return success;
 }
 
 /**
  * Ask all the legs to go forwards.
+ * @param correlationId which command instigated the motion
  * @return true if all the legs responded properly, false if not
  */
-bool sendForward() {
+bool sendForward(char* correlationId) {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
-    success &= (sendLegCommand(i, LEG_FORWARD) == 0);
+    success &= (sendLegCommand(correlationId, i, LEG_FORWARD) == 0);
   }
   return success;
 }
 
 /**
  * Ask all the legs to go backwards.
+ * @param correlationId which command instigated the motion
  * @return true if all the legs responded properly, false if not
  */
-bool sendBackward() {
+bool sendBackward(char* correlationId) {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
-    success &= (sendLegCommand(i, LEG_BACKWARD) == 0);
+    success &= (sendLegCommand(correlationId, i, LEG_BACKWARD) == 0);
   }
   return success;
 }
 
 /**
  * Ask all the odd legs (on the left) to go forwards. All the even legs go backwards.
+ * @param correlationId which command instigated the motion
  * @return true if all the legs responded properly, false if not
  */
-bool sendLeft() {
+bool sendLeft(char* correlationId) {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
     char command;
@@ -142,16 +146,17 @@ bool sendLeft() {
       command = LEG_FORWARD;
     }
 
-    success &= (sendLegCommand(i, command) == 0);
+    success &= (sendLegCommand(correlationId, i, command) == 0);
   }
   return success;
 }
 
 /**
  * Ask all the odd legs (on the left) to go backwards. All the even legs go forwards.
+ * @param correlationId which command instigated the motion
  * @return true if all the legs responded properly, false if not
  */
-bool sendRight() {
+bool sendRight(char* correlationId) {
   bool success = true;
   for (int i = 1; i <= maxLegs; i++) {
     char command;
@@ -161,30 +166,29 @@ bool sendRight() {
       command = LEG_BACKWARD;
     }
 
-    success &= (sendLegCommand(i, command) == 0);
+    success &= (sendLegCommand(correlationId, i, command) == 0);
   }
   return success;
 }
 
-/**
+/**m
  * Print some serial debug out.
  *
+ * @param correlationId the command reference to which feedback applies
  * @param leg the leg we spoke to
  * @param command the command we sent
  * @param success successful or not?
  */
-void debug(int leg, char command, int success) {
-  Serial.print("Sent leg ");
-  Serial.print(leg);
-  Serial.print(" ");
-  Serial.print(command);
-  Serial.print(" response was ");
-  Serial.print(success);
-  Serial.println();
+void debug(char* correlationId, int leg, char command, int success) {
+  char *format = "%s|INFO|%c|Sent to leg %d with response %d";
+  char buffer[120];
+  
+  sprintf(buffer, format, correlationId, command, leg, success);
+  Serial.println(buffer);
 }
 
 /**
--0:success 
+Mm-0:success 
 -1:data too long to fit in transmit buffer 
 -2:received NACK on transmit of address 
 -3:received NACK on transmit of data 
@@ -193,14 +197,17 @@ void debug(int leg, char command, int success) {
 
 /**
  * Send a command to a leg.
+ * @param correlationId the comamnd reference from the client
+ * @param leg the leg number
+ * @param command the command to send
  * @return non-zero response in case of failure
  */
-int sendLegCommand(int leg, char command) {
+int sendLegCommand(char *correlationId, int leg, char command) {
   Wire.beginTransmission(leg);
   Wire.write(command);
   int response = Wire.endTransmission();
   
-  debug(leg, command, response);
+  debug(correlationId, leg, command, response);
   
   return response;
 }
