@@ -1,10 +1,12 @@
 #include <Wire.h>
 
-const char *COMMAND_HOME  = "HOME";
-const char *COMMAND_WALK  = "FORWARD";
-const char *COMMAND_BACK  = "BACKWARD";
-const char *COMMAND_LEFT  = "LEFT";
-const char *COMMAND_RIGHT = "RIGHT";
+const char *COMMAND_HOME     = "HOME";
+const char *COMMAND_WALK     = "FORWARD";
+const char *COMMAND_BACK     = "BACKWARD";
+const char *COMMAND_LEFT     = "LEFT";
+const char *COMMAND_RIGHT    = "RIGHT";
+const char *COMMAND_SHUTDOWN = "HALT";
+const char *COMMAND_STARTUP  = "BOOT";
 
 const char LEG_HOME     = 'H';
 const char LEG_FORWARD  = 'F';
@@ -16,14 +18,28 @@ const int buffer_size = 100;
 // How many legs do we have?
 const int maxLegs = 6;
 
+// Have we been started up?
+bool started = false;
+
+const int ledPin = 13;
+int powerRelayPin = 10;
+
 void setup() {
   Serial.begin(9600);
   Serial.setTimeout(500);
   Wire.begin();
   Wire.setTimeout(500);
+
+  pinMode(ledPin, OUTPUT);
+  pinMode(powerRelayPin, OUTPUT);
+  digitalWrite(powerRelayPin, HIGH);
 }
 
 void loop() {
+
+  digitalWrite(ledPin, started);
+  digitalWrite(powerRelayPin, started ? LOW : HIGH);
+
   char buf[buffer_size];
   int number = getline(buf, buffer_size);
 
@@ -43,16 +59,24 @@ void loop() {
       char *additionalInformation = "";
 
       bool success;
-      if (strcmp(COMMAND_HOME, command) == 0) {
+      if (started && strcmp(COMMAND_HOME, command) == 0) {
         success = sendHome(correlationId);
-      } else if (strcmp(COMMAND_WALK, command) == 0) {
+      } else if (started && strcmp(COMMAND_WALK, command) == 0) {
         success = sendForward(correlationId);
-      } else if (strcmp(COMMAND_BACK, command) == 0) {
+      } else if (started && strcmp(COMMAND_BACK, command) == 0) {
         success = sendBackward(correlationId);
-      } else if (strcmp(COMMAND_LEFT, command) == 0) {
+      } else if (started && strcmp(COMMAND_LEFT, command) == 0) {
         success = sendLeft(correlationId);
-      } else if (strcmp(COMMAND_RIGHT, command) == 0) {
+      } else if (started && strcmp(COMMAND_RIGHT, command) == 0) {
         success = sendRight(correlationId);
+      } else if (strcmp(COMMAND_SHUTDOWN, command) == 0) {
+        stop();
+        success = true;
+        additionalInformation = "GOODBYE";
+      } else if (strcmp(COMMAND_STARTUP, command) == 0) {
+        start();
+        success = started;
+        additionalInformation = "HELLO";
       } else {
         success = false;
         additionalInformation = "NOT_SUPPORTED";
@@ -74,6 +98,26 @@ void loop() {
       Serial.println(response);
     }
   }
+}
+
+/**
+ * Start the legs up.
+ */
+void start() {
+  char* correlationId = "STARTUP";
+
+  // Set the global started if sending home worked.
+  started = sendHome(correlationId);
+}
+
+/**
+ * Stop the legs.
+ */
+void stop() {
+  char* correlationId = "SHUTDOWN";
+
+  started = false;
+  sendHome(correlationId);
 }
 
 /**
@@ -182,17 +226,17 @@ bool sendRight(char* correlationId) {
 void debug(char* correlationId, int leg, char command, int success) {
   char *format = "%s|INFO|%c|Sent to leg %d with response %d";
   char buffer[120];
-  
+
   sprintf(buffer, format, correlationId, command, leg, success);
   Serial.println(buffer);
 }
 
 /**
-Mm-0:success 
--1:data too long to fit in transmit buffer 
--2:received NACK on transmit of address 
--3:received NACK on transmit of data 
--4:other error 
+Mm-0:success
+-1:data too long to fit in transmit buffer
+-2:received NACK on transmit of address
+-3:received NACK on transmit of data
+-4:other error
 */
 
 /**
@@ -203,11 +247,12 @@ Mm-0:success
  * @return non-zero response in case of failure
  */
 int sendLegCommand(char *correlationId, int leg, char command) {
+  int response = -1;
   Wire.beginTransmission(leg);
   Wire.write(command);
-  int response = Wire.endTransmission();
-  
+  response = Wire.endTransmission();
+
   debug(correlationId, leg, command, response);
-  
+
   return response;
 }

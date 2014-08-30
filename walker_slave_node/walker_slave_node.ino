@@ -14,7 +14,7 @@
  * H - Go to home position
  */
 
-char standingOrder = 'F';
+char standingOrder = 'H';
 
 // The previus time the leg motion was changed
 unsigned long previousMillis = 0;
