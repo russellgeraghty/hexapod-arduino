@@ -22,7 +22,7 @@ const int maxLegs = 6;
 bool started = false;
 
 const int ledPin = 13;
-int powerRelayPin = 10;
+int powerRelayPin = 11;
 
 unsigned long previousVoltsMillis = 0;
 const int voltsInterval = 5000;
@@ -268,7 +268,7 @@ bool sendRight(char* correlationId) {
   return success;
 }
 
-/**m
+/**
  * Print some serial debug out.
  *
  * @param correlationId the command reference to which feedback applies
@@ -285,7 +285,7 @@ void debug(char* correlationId, int leg, char command, int success) {
 }
 
 /**
-Mm-0:success
+-0:success
 -1:data too long to fit in transmit buffer
 -2:received NACK on transmit of address
 -3:received NACK on transmit of data
