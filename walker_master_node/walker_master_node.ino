@@ -26,6 +26,7 @@ int powerRelayPin = 11;
 
 unsigned long previousVoltsMillis = 0;
 const int voltsInterval = 5000;
+const float minVolts = 6.8;
 
 void setup() {
   Serial.begin(9600);
@@ -52,10 +53,11 @@ void loop() {
     
     long currentReferenceMillis = readVcc();
     
-    long sensorValue = analogRead(A0);
+    // There is a voltage divider on A0 splitting by 2.
+    long sensorValue = analogRead(A0) * 2;
     float voltage= sensorValue * (currentReferenceMillis / 1023000.0);
     
-    if (voltage < 6.8) {
+    if (voltage < minVolts) {
       // Emergency stop then
       Serial.print("ERROR|FAILED|POWER|UNDER_VOLTAGE ");
       Serial.println(voltage);
