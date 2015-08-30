@@ -2,9 +2,12 @@
 #include <Servo.h>
 
 #define LED_PIN 13
-#define WAIST_PIN 9
-#define SHOULDER_PIN 10
-#define ELBOW_PIN 11
+#define COXA_PIN 9
+#define TROCANTERE_PIN 10
+#define PATELLA_PIN 11
+#define FEMUR 95
+#define TIBIA 125
+#define COXA_L 35
 
 /**
  * Commands are a single letter.
@@ -21,15 +24,21 @@ unsigned long previousMillis = 0;
 unsigned long ledIllumiteUntil = 0;
 
 // Interval in milliseconds between leg actions:
-const long interval = 500;
+const long INTERVAL = 500;
 
-// This is the home position, a single standing leg
-// Order is waist, shoulder, elbow
-short home[] = {60, 70, 170, -1};
-short forwards[] = {40, 20, 130, 
-                    40, 40, 180, 
-                    60, 40, 180, 
-                    60, 20, 130, 
+const short femurSquared = FEMUR*FEMUR;
+const short tibiaSquared = TIBIA*TIBIA;
+const short coxaSquared = COXA_L*COXA_L;
+
+// This is the home position, a single standing leg. All distances in mm.
+// Order is x, y, z. z is the height of the body above ground, x runs across the 
+//  join of the abdomen (were there to be one). y is in the direction of travel
+//  for something moving forwards.
+double home[] = {80, 150, 20, -1};
+
+// A walking motion
+double forwards[] = {20, 20, 20,
+                    0, 10, 20,
                     -1};
 
 // The current index in the position loop
@@ -39,17 +48,18 @@ byte index = 0;
 const byte numJoints = 3;
 
 // The current motion being actioned
-short *motion;
+double *motion;
 
-Servo waist;
-Servo shoulder;
-Servo elbow;
+Servo coxa;
+Servo trocantere;
+Servo patella;
 
 int channel;
 
 void setup()
 {
-  Serial.begin(9600);           // start serial for output
+  // start serial for output
+  Serial.begin(9600);           
 
   // Use the Analogue pins to set the bus address
   pinMode(A0, INPUT);
@@ -61,9 +71,9 @@ void setup()
   channel = digitalRead(A0) + (digitalRead(A1) << 1) + (digitalRead(A2) << 2);
 
   // Servos
-  waist.attach(WAIST_PIN);
-  shoulder.attach(SHOULDER_PIN);
-  elbow.attach(ELBOW_PIN);
+  coxa.attach(COXA_PIN);
+  trocantere.attach(TROCANTERE_PIN);
+  patella.attach(PATELLA_PIN);
   
   // LED
   pinMode(LED_PIN, OUTPUT);
@@ -77,6 +87,8 @@ void setup()
 
 void loop()
 {
+  double angles[] = {0,0,0};
+  
   // Handle the LED
   unsigned long currentLedMillis = millis();
   
@@ -84,29 +96,26 @@ void loop()
     digitalWrite(LED_PIN, LOW);
   }
   
-  // Every 100ms read the increment position (or go back home) and send the new leg options out
+  // Every so often read the increment position (or go back home) and send the new leg options out
   unsigned long currentMillis = millis();
 
-  if (currentMillis - previousMillis >= interval) {
-    // save the last time you blinked the LED
+  if (currentMillis - previousMillis >= INTERVAL) {
     previousMillis = currentMillis;
 
-    short waist = motion[index];
-    short shoulder = motion[index + 1];
-    short elbow = motion[index + 2];
+    calculateAngles(&motion[index], angles);
 
-    setWaist(waist);
-    setShoulder(shoulder);
-    setElbow(elbow);
+    double coxa_degrees = angles[0];
+    double trocantere_degrees = angles[1];
+    double patella_degrees = angles[2];
+
+    setCoxa(coxa_degrees);
+    setTrocantere(trocantere_degrees);
+    setPatella(patella_degrees);
 
     // Now change the leg index counter
     index += numJoints;
     // Because a joint can be at postion 0 perfectly legally the motion index array is terminated by -1.
     if (motion[index] == -1) {
-//      Serial.print("Next index ");
-//      Serial.print(index);
-//      Serial.print(" is the end of motion, resetting");
-//      Serial.println();
       index = 0;
     }
 
@@ -128,6 +137,48 @@ void loop()
   }
 }
 
+/**
+ * Calculate all the angles from the given motion.
+ * 
+ * @param short* motion - pointer to an array of motions, at least three wide.
+ *   Note: This function will not check that the array is wide enough.
+ * @param short* angles - an array into which we place the calculated values
+ *   Note: The caller must ensure this is initialised and wide enough
+ */
+void calculateAngles(double* motion, double* angles) {
+  double x = motion[0];
+  double y = motion[1];
+  double z = motion[2];
+
+  double gamma = radiansToDegrees(atan(x/y));
+  Serial.print("Gamma ");
+  Serial.print(gamma);
+  Serial.println();
+
+  double lPrime = sqrt(sq(x) + sq(sqrt(sq(x) + sq(y) - COXA_L)) );
+  double lPrimeSquared = sq(lPrime);
+  double twoFemurTibia = 2 * FEMUR * TIBIA;
+  
+  double beta = radiansToDegrees(acos( (femurSquared + tibiaSquared + lPrimeSquared)/twoFemurTibia) );
+  Serial.print("Beta ");
+  Serial.print(beta);
+  Serial.println();
+
+  double alpha = radiansToDegrees(acos(z/lPrime) + acos( (femurSquared + lPrimeSquared - tibiaSquared)/twoFemurTibia));
+  Serial.print("Alpha ");
+  Serial.print(alpha);
+  Serial.println();
+
+  angles[0] = gamma;
+  angles[1] = beta;
+  angles[2] = alpha;
+}
+
+double radiansToDegrees(double rads) {
+  return (rads * 4068) / 71;
+}
+
+
 // function that executes whenever data is received from master
 // this function is registered as an event, see setup()
 void receiveEvent(int howMany)
@@ -148,49 +199,49 @@ void receiveEvent(int howMany)
   }
 }
 
-void setWaist(short waistPosition) {
-//  Serial.print("Requested waist to    ");
-//  Serial.print(waistPosition);
+void setCoxa(short coxaPosition) {
+//  Serial.print("Requested coxa to    ");
+//  Serial.print(coxaPosition);
 //  Serial.println();
   
-  waistPosition = min(60, waistPosition);
-  waistPosition = max(40, waistPosition);
+  coxaPosition = min(60, coxaPosition);
+  coxaPosition = max(40, coxaPosition);
   
-//  Serial.print("Setting waist to      ");
-//  Serial.print(waistPosition);
+//  Serial.print("Setting coxa to      ");
+//  Serial.print(coxaPosition);
 //  Serial.println();  
   
-  waist.write(waistPosition);
+  coxa.write(coxaPosition);
 }
 
-void setShoulder(short shoulderPosition) {
-//  Serial.print("Requested shoulder to ");
-//  Serial.print(shoulderPosition);
+void setTrocantere(short trocanterePosition) {
+//  Serial.print("Requested trocantere to ");
+//  Serial.print(trocanterePosition);
 //  Serial.println();
   
-  shoulderPosition = min(150, shoulderPosition);
-  shoulderPosition = max(0, shoulderPosition);
+  trocanterePosition = min(150, trocanterePosition);
+  trocanterePosition = max(0, trocanterePosition);
   
-//  Serial.print("Setting shoulder to   ");
-//  Serial.print(shoulderPosition);
+//  Serial.print("Setting trocantere to   ");
+//  Serial.print(trocanterePosition);
 //  Serial.println();
   
-  shoulder.write(shoulderPosition);
+  trocantere.write(trocanterePosition);
 }
 
-void setElbow(short elbowPosition) {
-//  Serial.print("Requested elbow to    ");
-//  Serial.print(elbowPosition);
+void setPatella(short patellaPosition) {
+//  Serial.print("Requested patella to    ");
+//  Serial.print(patellaPosition);
 //  Serial.println();
   
-  elbowPosition = min(180, elbowPosition);
-  elbowPosition = max(0, elbowPosition);
+  patellaPosition = min(180, patellaPosition);
+  patellaPosition = max(0, patellaPosition);
 
-//  Serial.print("Setting elbow to      ");
-//  Serial.print(elbowPosition);
+//  Serial.print("Setting patella to      ");
+//  Serial.print(patellaPosition);
 //  Serial.println();
   
-  elbow.write(elbowPosition);  
+  patella.write(patellaPosition);  
 }
 
 /**
