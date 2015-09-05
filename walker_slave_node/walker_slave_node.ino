@@ -30,15 +30,21 @@ const short femurSquared = FEMUR*FEMUR;
 const short tibiaSquared = TIBIA*TIBIA;
 const short coxaSquared = COXA_L*COXA_L;
 
+boolean isLeft = false;
+
 // This is the home position, a single standing leg. All distances in mm.
 // Order is x, y, z. z is the height of the body above ground, x runs across the 
 //  join of the abdomen (were there to be one). y is in the direction of travel
 //  for something moving forwards.
-double home[] = {80, 150, 20, -1};
+double home[] = {130, 0, 125, -1};
 
 // A walking motion
-double forwards[] = {20, 20, 20,
-                    0, 10, 20,
+double forwards[] = {130, 0, 125,
+                     130, 20, 125,
+                     130, 40, 125,
+                     130, 60, 125,
+                     130, 40, 125,
+                     130, 20, 125,
                     -1};
 
 // The current index in the position loop
@@ -69,6 +75,9 @@ void setup()
   digitalWrite(A1, HIGH);
   digitalWrite(A2, HIGH);
   channel = digitalRead(A0) + (digitalRead(A1) << 1) + (digitalRead(A2) << 2);
+
+  // Is my leg on the left hand side?
+  isLeft = channel < 4;
 
   // Servos
   coxa.attach(COXA_PIN);
@@ -133,6 +142,8 @@ void loop()
     Serial.print("]. Currently executing command [");
     Serial.print(standingOrder);
     Serial.print("]");
+    Serial.print(" Left? ");
+    Serial.print(isLeft);
     Serial.println();
   }
 }
@@ -140,9 +151,9 @@ void loop()
 /**
  * Calculate all the angles from the given motion.
  * 
- * @param short* motion - pointer to an array of motions, at least three wide.
+ * @param double* motion - pointer to an array of motions, at least three wide.
  *   Note: This function will not check that the array is wide enough.
- * @param short* angles - an array into which we place the calculated values
+ * @param double* angles - an array into which we place the calculated values
  *   Note: The caller must ensure this is initialised and wide enough
  */
 void calculateAngles(double* motion, double* angles) {
@@ -150,28 +161,16 @@ void calculateAngles(double* motion, double* angles) {
   double y = motion[1];
   double z = motion[2];
 
-  double gamma = radiansToDegrees(atan(x/y));
-  Serial.print("Gamma ");
-  Serial.print(gamma);
-  Serial.println();
+  double gamma = radiansToDegrees(atan(y/(x - COXA_L)));
 
-  double lPrime = sqrt(sq(x) + sq(sqrt(sq(x) + sq(y) - COXA_L)) );
+  double lPrime = sqrt( sq(x - COXA_L) + sq(z) );
   double lPrimeSquared = sq(lPrime);
-  double twoFemurTibia = 2 * FEMUR * TIBIA;
+  double beta = radiansToDegrees(acos( (femurSquared + tibiaSquared - lPrimeSquared)/(2 * FEMUR * TIBIA)) );
+  double alpha = radiansToDegrees(acos(z/lPrime) + acos( (femurSquared + lPrimeSquared - tibiaSquared)/(2 * FEMUR * lPrime)));
   
-  double beta = radiansToDegrees(acos( (femurSquared + tibiaSquared + lPrimeSquared)/twoFemurTibia) );
-  Serial.print("Beta ");
-  Serial.print(beta);
-  Serial.println();
-
-  double alpha = radiansToDegrees(acos(z/lPrime) + acos( (femurSquared + lPrimeSquared - tibiaSquared)/twoFemurTibia));
-  Serial.print("Alpha ");
-  Serial.print(alpha);
-  Serial.println();
-
   angles[0] = gamma;
-  angles[1] = beta;
-  angles[2] = alpha;
+  angles[1] = alpha;
+  angles[2] = beta;
 }
 
 double radiansToDegrees(double rads) {
@@ -200,16 +199,17 @@ void receiveEvent(int howMany)
 }
 
 void setCoxa(short coxaPosition) {
-//  Serial.print("Requested coxa to    ");
+//  Serial.print("Requested coxa to       ");
 //  Serial.print(coxaPosition);
 //  Serial.println();
+
+  coxaPosition = coxaPosition + 90;
+  coxaPosition = min(110, coxaPosition);
+  coxaPosition = max(70, coxaPosition);
   
-  coxaPosition = min(60, coxaPosition);
-  coxaPosition = max(40, coxaPosition);
-  
-//  Serial.print("Setting coxa to      ");
-//  Serial.print(coxaPosition);
-//  Serial.println();  
+  Serial.print("Setting coxa to         ");
+  Serial.print(coxaPosition);
+  Serial.println();  
   
   coxa.write(coxaPosition);
 }
@@ -218,13 +218,14 @@ void setTrocantere(short trocanterePosition) {
 //  Serial.print("Requested trocantere to ");
 //  Serial.print(trocanterePosition);
 //  Serial.println();
-  
-  trocanterePosition = min(150, trocanterePosition);
+ 
+  trocanterePosition = trocanterePosition;
+  trocanterePosition = min(180, trocanterePosition);
   trocanterePosition = max(0, trocanterePosition);
   
-//  Serial.print("Setting trocantere to   ");
-//  Serial.print(trocanterePosition);
-//  Serial.println();
+  Serial.print("Setting trocantere to   ");
+  Serial.print(trocanterePosition);
+  Serial.println();
   
   trocantere.write(trocanterePosition);
 }
@@ -233,13 +234,15 @@ void setPatella(short patellaPosition) {
 //  Serial.print("Requested patella to    ");
 //  Serial.print(patellaPosition);
 //  Serial.println();
+
+  patellaPosition = patellaPosition;
   
   patellaPosition = min(180, patellaPosition);
   patellaPosition = max(0, patellaPosition);
 
-//  Serial.print("Setting patella to      ");
-//  Serial.print(patellaPosition);
-//  Serial.println();
+  Serial.print("Setting patella to      ");
+  Serial.print(patellaPosition);
+  Serial.println();
   
   patella.write(patellaPosition);  
 }

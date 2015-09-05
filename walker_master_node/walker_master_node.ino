@@ -7,6 +7,7 @@ const char *COMMAND_LEFT     = "LEFT";
 const char *COMMAND_RIGHT    = "RIGHT";
 const char *COMMAND_SHUTDOWN = "HALT";
 const char *COMMAND_STARTUP  = "BOOT";
+const char *COMMAND_VOLTAGE  = "CHECK";
 
 const char LEG_HOME     = 'H';
 const char LEG_FORWARD  = 'F';
@@ -26,7 +27,7 @@ int powerRelayPin = 11;
 
 unsigned long previousVoltsMillis = 0;
 const int voltsInterval = 5000;
-const float minVolts = 6.8;
+float minVolts = 6.8;
 
 void setup() {
   Serial.begin(9600);
@@ -82,7 +83,7 @@ void loop() {
     if (pos > 1) {
       char *correlationId = pieces[0];
       char *command = pieces[1];
-      char *additionalInformation = "";
+      char *additionalInformation = '\0';
 
       bool success;
       if (started && strcmp(COMMAND_HOME, command) == 0) {
@@ -95,6 +96,20 @@ void loop() {
         success = sendLeft(correlationId);
       } else if (started && strcmp(COMMAND_RIGHT, command) == 0) {
         success = sendRight(correlationId);
+      } else if (strcmp(COMMAND_VOLTAGE, command) == 0) {
+        if (pos > 2) {
+          double volts = atof(pieces[2]);
+          if (volts > 2) {
+            minVolts = volts;
+            success = true;
+          } else {
+            success = false;
+            additionalInformation = "VOLTS TOO LOW";
+          }
+        } else {
+          success = false;
+          additionalInformation = "VOLTAGE REQUIRED";
+        }
       } else if (strcmp(COMMAND_SHUTDOWN, command) == 0) {
         stop();
         success = true;
