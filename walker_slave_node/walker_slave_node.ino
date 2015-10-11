@@ -8,6 +8,7 @@
 #define FEMUR 95
 #define TIBIA 125
 #define COXA_L 35
+#define METATARSUS 25
 
 /**
  * Commands are a single letter.
@@ -15,6 +16,7 @@
  * R - Go rearwards
  * C - Crouch
  * H - Go to home position
+ * Z - Calibration mode, legs straight down.
  */
 
 char standingOrder = 'H';
@@ -36,15 +38,17 @@ boolean isLeft = false;
 // Order is x, y, z. z is the height of the body above ground, x runs across the 
 //  join of the abdomen (were there to be one). y is in the direction of travel
 //  for something moving forwards.
-double home[] = {130, 0, 125, -1};
+double home[] = {180, 0, 125, -1};
+
+double calibrate[] = {0, 0, 212, -1}
 
 // A walking motion
-double forwards[] = {130, 0, 125,
-                     130, 20, 125,
-                     130, 40, 125,
-                     130, 60, 125,
-                     130, 40, 125,
-                     130, 20, 125,
+double forwards[] = {180, 0, 125,
+                     180, 20, 110,
+                     180, 40, 95,
+                     180, 60, 80,
+                     180, 40, 95,
+                     180, 20, 110,
                     -1};
 
 // The current index in the position loop
@@ -80,9 +84,9 @@ void setup()
   isLeft = channel < 4;
 
   // Servos
-  coxa.attach(COXA_PIN);
-  trocantere.attach(TROCANTERE_PIN);
-  patella.attach(PATELLA_PIN);
+  coxa.attach(COXA_PIN, 1000, 2000);
+  trocantere.attach(TROCANTERE_PIN, 1000, 2000);
+  patella.attach(PATELLA_PIN, 1000, 2000);
   
   // LED
   pinMode(LED_PIN, OUTPUT);
@@ -157,17 +161,20 @@ void loop()
  *   Note: The caller must ensure this is initialised and wide enough
  */
 void calculateAngles(double* motion, double* angles) {
+  int multiplier = isLeft ? -1 : 1;
+  
   double x = motion[0];
   double y = motion[1];
   double z = motion[2];
 
   double gamma = radiansToDegrees(atan(y/(x - COXA_L)));
 
-  double lPrime = sqrt( sq(x - COXA_L) + sq(z) );
+  double lPrime = sqrt( sq(x - COXA_L - METATARSUS) + sq(z) );
   double lPrimeSquared = sq(lPrime);
   double beta = radiansToDegrees(acos( (femurSquared + tibiaSquared - lPrimeSquared)/(2 * FEMUR * TIBIA)) );
   double alpha = radiansToDegrees(acos(z/lPrime) + acos( (femurSquared + lPrimeSquared - tibiaSquared)/(2 * FEMUR * lPrime)));
-  
+
+  // Setup positions
   angles[0] = gamma;
   angles[1] = alpha;
   angles[2] = beta;
@@ -203,7 +210,7 @@ void setCoxa(short coxaPosition) {
 //  Serial.print(coxaPosition);
 //  Serial.println();
 
-  coxaPosition = coxaPosition + 90;
+  coxaPosition = coxaPosition;
   coxaPosition = min(110, coxaPosition);
   coxaPosition = max(70, coxaPosition);
   
@@ -218,8 +225,12 @@ void setTrocantere(short trocanterePosition) {
 //  Serial.print("Requested trocantere to ");
 //  Serial.print(trocanterePosition);
 //  Serial.println();
- 
-  trocanterePosition = trocanterePosition;
+
+  if (isLeft) {
+    trocanterePosition = trocanterePosition;
+  } else {
+    trocanterePosition = (180 - trocanterePosition);
+  }
   trocanterePosition = min(180, trocanterePosition);
   trocanterePosition = max(0, trocanterePosition);
   
@@ -235,7 +246,11 @@ void setPatella(short patellaPosition) {
 //  Serial.print(patellaPosition);
 //  Serial.println();
 
-  patellaPosition = patellaPosition;
+  if (isLeft) {
+    patellaPosition = patellaPosition;
+  } else {
+    patellaPosition = (180 - patellaPosition);
+  }
   
   patellaPosition = min(180, patellaPosition);
   patellaPosition = max(0, patellaPosition);
@@ -261,6 +276,10 @@ void setStandingOrder() {
       break;
     case 'F':
       motion = forwards;
+      changed = true;
+      break;
+    case 'Z':
+      motion = calibrate;
       changed = true;
       break;
     default:
