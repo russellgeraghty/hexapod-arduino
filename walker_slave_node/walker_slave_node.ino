@@ -290,7 +290,21 @@ void setStandingOrder() {
   }
 
   if (changed) {
-    index = 0;
+    // OK, quick squiz to see how long the motion is
+    int size = 0;
+    while (motion[size * numLegs] != -1) {
+      size++;
+    }
+
+    size = size / 3;
+
+    // OK, our start index is the channel (note than left and right front legs lead the motion) 
+    // multiplied by the size offset. This moves each leg's motion on to the correct phase
+    if (isLeft) {
+      index = (channel - 1) * size;
+    } else {
+      index = (channel - 4) * size;
+    }
     ledIllumiteUntil = millis() + 500;
     digitalWrite(LED_PIN, HIGH);
   }
